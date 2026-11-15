@@ -1,0 +1,153 @@
+/* A small, fast stylesheet: system type, no webfonts, no framework. */
+
+:root {
+  --ink: #171717;
+  --dim: #555;
+  --line: #ddd;
+  --link: #0b5cad;
+  --good: #137a2e;
+  --bad: #8a1f1f;
+  --card: #fafafa;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0 auto;
+  max-width: 960px;
+  padding: 0 16px 48px;
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: #fff;
+}
+
+header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  align-items: baseline;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 700; font-size: 1.1rem; }
+
+a { color: var(--link); }
+a:visited { color: #5b3a8e; }
+
+a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 2px;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: #fff;
+  padding: 8px 12px;
+  z-index: 1;
+}
+.skip:focus { left: 8px; top: 8px; }
+
+h1 { font-size: 1.6rem; line-height: 1.25; margin: 24px 0 8px; }
+h2 { font-size: 1.25rem; margin: 28px 0 8px; }
+
+.lede { color: var(--dim); margin: 0 0 16px; }
+.dim { color: var(--dim); }
+.handle { color: var(--dim); margin-top: -8px; }
+.bio { max-width: 60ch; }
+
+/* Board controls */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
+  padding: 12px;
+  margin: 0 0 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.controls label { display: grid; gap: 4px; font-size: 0.9rem; font-weight: 600; }
+.controls input, .controls select {
+  font: inherit;
+  font-weight: 400;
+  padding: 6px 8px;
+  border: 1px solid #999;
+  border-radius: 6px;
+  background: #fff;
+  min-height: 36px;
+}
+
+/* Board cards */
+.board { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+.card-title { font-size: 1.1rem; font-weight: 700; }
+.card-meta { margin: 6px 0 10px; color: var(--dim); font-size: 0.9rem; }
+.card-links { margin: 10px 0 0; font-size: 0.9rem; }
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.badge.open { color: var(--good); background: #e2f4e6; }
+.badge.closed { color: var(--bad); background: #fbe4e4; }
+
+/* Fact lists and tables */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+}
+.facts div { display: grid; gap: 2px; }
+.facts dt { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); }
+.facts dd { margin: 0; font-weight: 600; }
+.facts.big { margin: 16px 0; }
+
+table { border-collapse: collapse; width: 100%; margin: 8px 0 16px; }
+caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--dim); }
+td img { vertical-align: middle; border-radius: 50%; margin-right: 8px; }
+
+.description { white-space: pre-wrap; max-width: 75ch; }
+details { margin: 16px 0; }
+details summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+
+.subs { padding-left: 20px; }
+.subs li { margin: 6px 0; }
+
+.who { display: inline-flex; align-items: center; }
+
+.pager { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+.page { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; }
+.page.current { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+.avatar { border-radius: 50%; }
+
+footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  body { font-size: 15px; }
+  h1 { font-size: 1.35rem; }
+  .controls { flex-direction: column; align-items: stretch; }
+  .facts { grid-template-columns: 1fr 1fr; }
+  table { display: block; overflow-x: auto; }
+}
