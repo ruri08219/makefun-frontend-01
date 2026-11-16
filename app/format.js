@@ -1,21 +1,33 @@
-// Small helpers for showing API values.
+// Small helpers for showing API values as text.
 
 /** Text made safe to put inside HTML. */
 export function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-/** A dollar amount ('1000.00' or 0.5) as '$1,000' or '$0.50'. */
+/** A dollar amount ('642.00', 500 or 0.5) as '$642', '$500' or '$0.50'. */
 export function money(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return '—';
-  return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: Number.isInteger(n) ? 0 : 2 });
+  return n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
 }
 
-/** A deadline as a date in UTC. */
+/** A count with thousands separators. */
+export function count(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n.toLocaleString('en-US') : '—';
+}
+
+/** An ISO deadline as a short UTC date + time. */
 export function date(iso) {
-  if (!iso) return '—';
-  return `${new Date(iso).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC`;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' })} UTC`;
 }
 
 /** The time until a deadline: '2d 4h left', '35m left', or 'ended'. */
@@ -30,25 +42,25 @@ export function timeLeft(iso) {
   return `${minutes}m left`;
 }
 
-/**
- * Whether a bounty still takes entries. A bounty past its deadline may
- * still read status open until its results are published, so the deadline
- * decides, not the status alone.
- */
-export function isOpen(b) {
-  return b && b.deadline ? new Date(b.deadline).getTime() > Date.now() : b.status === 'open';
+/** True while a bounty still takes entries: its deadline has not passed. */
+export function stillOpen(bounty) {
+  return new Date(bounty.deadline).getTime() > Date.now();
 }
 
-/** '1 entry' / '23 entries'. */
-export function entries(n) {
-  return `${Number(n) || 0} ${Number(n) === 1 ? 'entry' : 'entries'}`;
+/** The live pot: fees paid in on top of the headline reward. */
+export function pot(bounty) {
+  return money(bounty.potUsd ?? bounty.rewardAmount);
 }
 
-/** A leaderboard score as the API displays it ('887222' micro-units -> '88.72%'). */
-export function score(value, precision) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
-  // Judge win rates arrive in micro-units; other scores arrive as-is.
-  const shown = precision === 0 && n > 10000 ? n / 10000 : n;
-  return precision === 0 ? `${shown.toFixed(2)}%` : String(shown);
+/** 'Free entry' or '$0.50 entry fee'. */
+export function feeLabel(bounty) {
+  const fee = Number(bounty.entryFeeUsd);
+  return fee > 0 ? `${money(fee)} entry fee` : 'Free entry';
+}
+
+/** Shorten a long string for a list row, keeping whole words where possible. */
+export function shorten(text, max) {
+  const s = String(text ?? '').replace(/\s+/g, ' ').trim();
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1).replace(/\s+\S*$/, '')}…`;
 }

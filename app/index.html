@@ -3,25 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A fast, lightweight make.fun frontend: the live bounty board, bounty pages, leaderboards and public profiles, from make.fun's public API alone.">
+<meta name="description" content="A fast, lean frontend for make.fun bounties: live board, bounty pages, leaderboards and profiles on the public API.">
 <title>make.fun bounties</title>
-<link rel="icon" href="data:,">
 <link rel="stylesheet" href="style.css">
 <script type="module" src="main.js"></script>
 </head>
 <body>
-<a class="skip" href="#app">Skip to content</a>
-<header>
-  <nav aria-label="Main">
-    <a class="brand" href="#/">make.fun bounties</a>
+<a class="skip" href="#view">Skip to content</a>
+<header class="top">
+  <a class="brand" href="#/">make<span>.fun</span> bounties</a>
+  <nav aria-label="Sections">
     <a href="#/">Board</a>
-    <a href="#/u/ruri08">Example profile</a>
-    <a href="https://make.fun/bounty/makefun-frontend-01">This bounty on make.fun</a>
+    <a href="#/u/ruri08">My profile</a>
   </nav>
 </header>
-<main id="app" tabindex="-1"></main>
+<main id="view" tabindex="-1"></main>
 <footer>
-  <p>Read-only client for <a href="https://make.fun">make.fun</a> — live data from its public API, no sign-in, no writes. <a href="https://make.fun/bounty/makefun-frontend-01">About this frontend</a></p>
+  <p>Unofficial frontend. Live data from make.fun's public API — read-only, no sign-in. <a href="https://make.fun/bounty/makefun-frontend-01">About this entry</a></p>
 </footer>
 </body>
 </html>

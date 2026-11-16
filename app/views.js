@@ -1,213 +1,196 @@
-// The four pages, each a function from API data to HTML. All values are
-// escaped; links are the only way between surfaces, and every surface has
-// its own hash URL, so each is reachable by link and by address.
+// The four surfaces, each a function from API data to HTML.
+// Every link is also a route main.js understands, so each surface is
+// reachable by clicking and by its own URL.
 
-import { date, entries, esc, isOpen, money, score, timeLeft } from './format.js';
+import { count, date, esc, feeLabel, money, pot, shorten, stillOpen, timeLeft } from './format.js';
 
-/** The reward as it stands now: the prize plus any entry fees paid into it. */
-const pot = (b) => money(b.potUsd ?? b.rewardAmount);
+const PAGE_SIZE_BOARD = 12;
+const PAGE_SIZE_LEADERBOARD = 25;
 
-/** The entry fee, when the bounty charges one. */
-const fee = (b) => (b.entryFeeUsd ? `${money(b.entryFeeUsd)} entry fee` : 'Free entry');
-
-/** Open / closed badge, judged by the deadline, not the status alone. */
-const badge = (b) =>
-  isOpen(b)
-    ? '<span class="badge open">Open</span>'
-    : '<span class="badge closed">Closed</span>';
-
-const PAGE_SIZE = 12;
-
-/** Board controls: search, filter, sort. Values come from the board state in main.js. */
-export function boardControls(state) {
-  const { q, filter, sort } = state;
-  return `<form class="controls" id="board-controls" role="search" aria-label="Filter bounties">
-    <label>Search <input type="search" name="q" value="${esc(q)}" placeholder="Title or slug" aria-label="Search bounties by title"></label>
-    <label>Show
-      <select name="filter" aria-label="Filter bounties">
-        <option value="all"${filter === 'all' ? ' selected' : ''}>All open bounties</option>
-        <option value="ending"${filter === 'ending' ? ' selected' : ''}>Ending within 24 hours</option>
-        <option value="free"${filter === 'free' ? ' selected' : ''}>Free entry</option>
-        <option value="paid"${filter === 'paid' ? ' selected' : ''}>Paid entry</option>
-      </select>
-    </label>
-    <label>Sort by
-      <select name="sort" aria-label="Sort bounties">
-        <option value="pot"${sort === 'pot' ? ' selected' : ''}>Largest pot</option>
-        <option value="deadline"${sort === 'deadline' ? ' selected' : ''}>Soonest deadline</option>
-        <option value="entries"${sort === 'entries' ? ' selected' : ''}>Most entries</option>
-      </select>
-    </label>
-  </form>`;
-}
-
-/** Filter + sort the board client-side, so a control change costs no request. */
-export function filterBoard(items, state) {
-  const q = state.q.trim().toLowerCase();
-  let rows = items.filter((b) => {
-    if (q && !(b.title + ' ' + b.slug).toLowerCase().includes(q)) return false;
-    if (state.filter === 'ending') return isOpen(b) && new Date(b.deadline).getTime() - Date.now() < 86400000;
-    if (state.filter === 'free') return !b.entryFeeUsd;
-    if (state.filter === 'paid') return !!b.entryFeeUsd;
-    return true;
-  });
-  const key =
-    state.sort === 'deadline'
-      ? (b) => new Date(b.deadline).getTime()
-      : state.sort === 'entries'
-        ? (b) => -(b.submissionCount || 0)
-        : (b) => -(Number(b.potUsd ?? b.rewardAmount) || 0);
-  rows = rows.slice().sort((a, b) => key(a) - key(b));
-  return rows;
-}
-
-/** One page of rows, with a pager. Page numbers are links, so a page is shareable. */
+/** Pager links for a hash route: `base` + page number, e.g. '#/page/2'. */
 function pager(page, pages, base) {
   if (pages <= 1) return '';
-  let links = '';
-  for (let p = 1; p <= pages; p++) {
-    links +=
-      p === page
-        ? `<span class="page current" aria-current="page">${p}</span>`
-        : `<a class="page" href="${base}${p}">${p}</a>`;
+  const link = (p, label, current) =>
+    current
+      ? `<a href="${base}${p}" aria-current="page">${p}</a>`
+      : `<a href="${base}${p}">${label}</a>`;
+  let out = '<nav class="pager" aria-label="Pages">';
+  out += page > 1 ? `<a href="${base}${page - 1}">← Prev</a>` : '<span aria-disabled="true">← Prev</span>';
+  for (let p = 1; p <= pages; p += 1) {
+    if (p === 1 || p === pages || Math.abs(p - page) <= 1) out += link(p, p, p === page);
+    else if (Math.abs(p - page) === 2) out += '<span aria-disabled="true">…</span>';
   }
-  return `<nav class="pager" aria-label="Pages">${links}</nav>`;
+  out += page < pages ? `<a href="${base}${page + 1}">Next →</a>` : '<span aria-disabled="true">Next →</span>';
+  return `${out}</nav>`;
 }
 
-export function board(data, state) {
-  const rows = filterBoard(data.items, state);
-  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, state.page), pages);
-  const slice = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const list = slice
-    .map(
-      (b) => `
-      <li class="card">
-        <a class="card-title" href="#/bounty/${encodeURIComponent(b.slug)}">${esc(b.title)}</a>
-        <p class="card-meta">${badge(b)} <span>${esc(b.category || '')}</span></p>
-        <dl class="facts">
-          <div><dt>Pot</dt><dd>${pot(b)}</dd></div>
-          <div><dt>Entry</dt><dd>${fee(b)}</dd></div>
-          <div><dt>Time left</dt><dd>${timeLeft(b.deadline)}</dd></div>
-          <div><dt>Entries</dt><dd>${entries(b.submissionCount)}</dd></div>
-        </dl>
-        <p class="card-links"><a href="#/bounty/${encodeURIComponent(b.slug)}/leaderboard">Leaderboard</a></p>
-      </li>`,
-    )
-    .join('');
+/** One board row: title, live pot, fee, time left, entries. */
+function boardRow(b) {
+  const open = stillOpen(b);
+  const left = timeLeft(b.deadline);
+  return `<li class="card">
+    <h2><a href="#/bounty/${encodeURIComponent(b.slug)}">${esc(b.title)}</a></h2>
+    <div class="meta">
+      <span class="pot">${pot(b)}</span>
+      <span class="fee">${feeLabel(b)}</span>
+      <span class="${open && left.endsWith('m left') ? 'ending' : ''}">${open ? left : 'ended'}</span>
+      <span>${count(b.submissionCount)} ${b.submissionCount === 1 ? 'entry' : 'entries'}</span>
+      <span class="tag">${esc(b.category ?? 'Bounty')}</span>
+    </div>
+    ${b.summary ? `<p class="desc">${esc(shorten(b.summary, 180))}</p>` : ''}
+  </li>`;
+}
+
+/** The bounty board, with search, filters, sort and paging — all client-side, no refetch. */
+export function board(items, state) {
+  const q = state.q.trim().toLowerCase();
+  let rows = items.filter((b) => stillOpen(b));
+  if (state.filter === 'free') rows = rows.filter((b) => Number(b.entryFeeUsd) <= 0);
+  if (state.filter === 'paid') rows = rows.filter((b) => Number(b.entryFeeUsd) > 0);
+  if (state.filter === 'ending') {
+    rows = rows.filter((b) => new Date(b.deadline).getTime() - Date.now() < 86400000);
+  }
+  if (q) {
+    rows = rows.filter((b) =>
+      `${b.title} ${b.slug} ${b.category ?? ''} ${b.summary ?? ''}`.toLowerCase().includes(q),
+    );
+  }
+  const sorts = {
+    deadline: (a, b) => new Date(a.deadline) - new Date(b.deadline),
+    pot: (a, b) => Number(b.potUsd ?? b.rewardAmount) - Number(a.potUsd ?? a.rewardAmount),
+    entries: (a, b) => (b.submissionCount ?? 0) - (a.submissionCount ?? 0),
+    title: (a, b) => String(a.title).localeCompare(String(b.title)),
+  };
+  rows = [...rows].sort(sorts[state.sort] ?? sorts.deadline);
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE_BOARD));
+  const page = Math.min(state.page, pages);
+  const shown = rows.slice((page - 1) * PAGE_SIZE_BOARD, page * PAGE_SIZE_BOARD);
+  const option = (value, label) =>
+    `<option value="${value}"${state.filter === value ? ' selected' : ''}>${label}</option>`;
+  const sortOption = (value, label) =>
+    `<option value="${value}"${state.sort === value ? ' selected' : ''}>${label}</option>`;
   return `<h1>Open bounties</h1>
-    <p class="lede">${rows.length} ${rows.length === 1 ? 'bounty' : 'bounties'} · pots include every entry fee paid so far.</p>
-    ${boardControls(state)}
-    <p role="status">${rows.length ? `Showing ${slice.length} of ${rows.length}.` : 'No bounties match these filters.'}</p>
-    <ul class="board">${list}</ul>
-    ${pager(page, pages, '#/page/')}`;
+  <p class="lede">${count(items.filter(stillOpen).length)} bounties taking entries now — live pots, fees and deadlines from make.fun's public API.</p>
+  <form class="controls" id="board-controls" action="#/" method="get">
+    <label class="small" for="q">Search</label>
+    <input type="search" id="q" name="q" value="${esc(state.q)}" placeholder="Search bounties…" autocomplete="off">
+    <label class="small" for="filter">Show</label>
+    <select id="filter" name="filter">
+      ${option('all', 'All open')}
+      ${option('free', 'Free entry')}
+      ${option('paid', 'Paid entry')}
+      ${option('ending', 'Ending in 24h')}
+    </select>
+    <label class="small" for="sort">Sort</label>
+    <select id="sort" name="sort">
+      ${sortOption('deadline', 'Ending soonest')}
+      ${sortOption('pot', 'Biggest pot')}
+      ${sortOption('entries', 'Most entries')}
+      ${sortOption('title', 'Title A–Z')}
+    </select>
+    <span class="count">${count(rows.length)} shown</span>
+  </form>
+  ${shown.length ? `<ul class="cards">${shown.map(boardRow).join('')}</ul>` : '<p class="notice">No bounties match — clear the search or pick another filter.</p>'}
+  ${pager(page, pages, '#/page/')}`;
 }
 
-/** The rewards table, with the live pot split over the places. */
-function rewardsTable(b) {
-  const rows = (b.rewardsNow || []).map(
-    (r) => `<tr><td>${r.place}</td><td>${money(r.baseUsd)}</td><td>${money(r.feeShareUsd)}</td><td><strong>${money(r.amountUsd)}</strong></td></tr>`,
-  );
-  if (!rows.length) return '<p>The rewards table is published once entries open.</p>';
-  return `<table>
-    <caption>Rewards — the live pot split over the paid places</caption>
-    <thead><tr><th scope="col">Place</th><th scope="col">Prize</th><th scope="col">Fee share</th><th scope="col">Total now</th></tr></thead>
-    <tbody>${rows.join('')}</tbody>
+/** The rewards table: each place and its prize, with the live pot split. */
+function rewardsTable(bounty) {
+  const rewards = bounty.rewards ?? {};
+  const places = Object.keys(rewards).map(Number).sort((a, b) => a - b);
+  if (!places.length) return '';
+  const feeTotal = Number(bounty.entryFeesUsd ?? 0);
+  const rewardTotal = Number(bounty.rewardAmount ?? 0);
+  const rows = places
+    .map((place) => {
+      const prize = Number(rewards[place]);
+      const share = feeTotal > 0 && rewardTotal > 0 ? money((feeTotal * prize) / rewardTotal) : '—';
+      return `<tr><td class="rank">${place}</td><td class="num">${money(prize)}</td><td class="num muted">${share === '—' ? '—' : `+ ${share} fees`}</td></tr>`;
+    })
+    .join('');
+  return `<h2>Rewards</h2>
+  <p class="small muted">Live pot ${pot(bounty)} — $${money(bounty.rewardAmount)} reward${feeTotal > 0 ? ` + ${money(feeTotal)} entry fees paid in` : ''}, split over the places below.</p>
+  <table>
+    <caption>Prize per place</caption>
+    <thead><tr><th>Place</th><th class="num">Prize</th><th class="num">Share of fees</th></tr></thead>
+    <tbody>${rows}</tbody>
   </table>`;
 }
 
+/** One bounty's page: summary, facts, rewards, description, leaderboard link. */
 export function bounty(b) {
-  const subs = (b.submissions || []).slice(0, 10);
-  const subList = subs.length
-    ? `<ul class="subs">${subs
-        .map(
-          (s) => `<li><a href="#/u/${encodeURIComponent(s.hunter)}">${esc(s.hunter)}</a> — ${esc(s.title || 'Untitled entry')}</li>`,
-        )
-        .join('')}</ul>`
-    : '<p>No entries yet.</p>';
-  return `
-    <p><a href="#/">← All bounties</a></p>
-    <h1>${esc(b.title)}</h1>
-    <p class="lede">${esc(b.summary || '')}</p>
-    <p>${badge(b)} <a href="#/bounty/${encodeURIComponent(b.slug)}/leaderboard">Leaderboard</a> · <a href="https://make.fun/bounty/${encodeURIComponent(b.slug)}">View on make.fun</a></p>
-    <dl class="facts big">
-      <div><dt>Live pot</dt><dd><strong>${pot(b)}</strong></dd></div>
-      <div><dt>Entry fee</dt><dd>${b.entryFeeUsd ? money(b.entryFeeUsd) : 'Free'}</dd></div>
-      <div><dt>Deadline</dt><dd>${date(b.deadline)} (${timeLeft(b.deadline)})</dd></div>
-      <div><dt>Opens</dt><dd>${date(b.opensAt || b.publishedAt)}</dd></div>
-      <div><dt>Entries</dt><dd>${entries(b.submissionCount)}</dd></div>
-      <div><dt>Status</dt><dd>${isOpen(b) ? 'Open — still taking entries' : 'Closed — past its deadline'}</dd></div>
-    </dl>
-    <h2>Rewards</h2>
-    ${rewardsTable(b)}
-    <h2>Description</h2>
-    <div class="description">${esc(b.description)}</div>
-    ${b.rules ? `<details><summary>Rules</summary><div class="description">${esc(b.rules)}</div></details>` : ''}
-    <h2>Recent entries</h2>
-    ${subList}`;
+  const open = stillOpen(b);
+  return `<p><a class="back" href="#/">← All bounties</a></p>
+  <h1>${esc(b.title)}</h1>
+  ${b.summary ? `<p class="lede">${esc(b.summary)}</p>` : ''}
+  <dl class="facts">
+    <div class="fact"><dt>Live pot</dt><dd class="pot">${pot(b)}</dd></div>
+    <div class="fact"><dt>Entry fee</dt><dd>${feeLabel(b)}</dd></div>
+    <div class="fact"><dt>Deadline</dt><dd>${date(b.deadline)}</dd></div>
+    <div class="fact"><dt>Time left</dt><dd>${open ? timeLeft(b.deadline) : 'Ended'}</dd></div>
+    <div class="fact"><dt>Entries</dt><dd>${count(b.submissionCount)}</dd></div>
+    <div class="fact"><dt>Status</dt><dd>${open ? 'Open' : 'Closed'}</dd></div>
+  </dl>
+  <p><a href="#/bounty/${encodeURIComponent(b.slug)}/leaderboard">Leaderboard →</a></p>
+  ${rewardsTable(b)}
+  ${b.description ? `<h2>Description</h2><div class="description">${esc(b.description)}</div>` : ''}`;
 }
 
-const LB_SIZE = 25;
-
-export function leaderboard(lb, slug, page) {
-  const cols = (lb.columns || []).filter((c) => !c.hidden);
-  const rankCol = lb.columns?.find((c) => c.key === lb.rank_key) || cols[0];
-  const list = lb.entries || [];
-  const pages = Math.max(1, Math.ceil(list.length / LB_SIZE));
-  const p = Math.min(Math.max(1, page), pages);
-  const slice = list.slice((p - 1) * LB_SIZE, p * LB_SIZE);
-  const head = `<tr><th scope="col">#</th><th scope="col">Entrant</th><th scope="col">Entry</th>${rankCol ? `<th scope="col">${esc(rankCol.title)}</th>` : ''}</tr>`;
-  const rows = slice
+/** One bounty's leaderboard: rank, entrant, title and the competition's own score columns, paged. */
+export function leaderboard(lb, page) {
+  const columns = (lb.columns ?? []).filter((c) => !c.hidden).slice(0, 4);
+  const entries = lb.entries ?? [];
+  const pages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE_LEADERBOARD));
+  const safePage = Math.min(page, pages);
+  const shown = entries.slice((safePage - 1) * PAGE_SIZE_LEADERBOARD, safePage * PAGE_SIZE_LEADERBOARD);
+  const slug = lb.competition?.slug ?? '';
+  const head = `<th>Rank</th><th>Entrant</th>${columns.map((c) => `<th class="num">${esc(c.title)}</th>`).join('')}`;
+  const rows = shown
     .map((e) => {
-      const value = rankCol ? score(e.display?.[rankCol.key] ?? e.values?.[rankCol.key], rankCol.precision) : '—';
-      const img = e.image
-        ? `<img crossorigin="anonymous" src="https://make.fun${esc(e.image)}" alt="" width="40" height="40" loading="lazy">`
-        : '';
-      return `<tr>
-        <td>${e.rank}</td>
-        <td><a class="who" href="#/u/${encodeURIComponent(e.handle)}">${img}<span>${esc(e.handle)}</span></a></td>
-        <td>${esc(e.title || '')}</td>
-        <td>${value}</td>
-      </tr>`;
+      const avatar = e.image ? `https://make.fun${e.image}` : '';
+      const name = e.handle ? `<a href="#/u/${encodeURIComponent(e.handle)}">${esc(e.handle)}</a>` : '—';
+      const cells = columns
+        .map((c) => `<td class="num">${esc(e.display?.[c.key] ?? e.values?.[c.key] ?? '—')}</td>`)
+        .join('');
+      return `<tr><td class="rank">${count(e.rank)}</td><td>${avatar ? `<img class="avatar" crossorigin="anonymous" src="${esc(avatar)}" alt="" loading="lazy">` : ''}${name}<br><span class="small muted">${esc(shorten(e.title ?? '', 60))}</span></td>${cells}</tr>`;
     })
     .join('');
-  return `
-    <p><a href="#/bounty/${encodeURIComponent(slug)}">← ${esc(lb.competition?.title || slug)}</a></p>
-    <h1>Leaderboard: ${esc(lb.competition?.title || slug)}</h1>
-    <p class="lede">${list.length ? `${list.length} ranked ${list.length === 1 ? 'entry' : 'entries'} · ${esc(lb.title || '')}` : 'No entries ranked yet — the board fills once entries are judged.'}</p>
-    ${list.length ? `<table><thead>${head}</thead><tbody>${rows}</tbody></table>${pager(p, pages, `#/bounty/${encodeURIComponent(slug)}/leaderboard/page/`)}` : ''}`;
+  return `<p><a class="back" href="#/bounty/${encodeURIComponent(slug)}">← ${esc(lb.competition?.title ?? slug)}</a></p>
+  <h1>${esc(lb.title ?? 'Leaderboard')}</h1>
+  <p class="lede">${esc(lb.competition?.title ?? '')} — ${count(entries.length)} entries${lb.phase?.title ? ` · ${esc(lb.phase.title)} phase` : ''}.</p>
+  ${entries.length ? `<table><caption>Top entries, page ${safePage} of ${pages}</caption><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>` : '<p class="notice">No entries yet — be the first.</p>'}
+  ${pager(safePage, pages, `#/bounty/${encodeURIComponent(slug)}/leaderboard/page/`)}`;
 }
 
+/** One account's public profile: avatar, bio, record and entries. */
 export function profile(p) {
-  const img = p.avatar?.url || p.image;
-  const rec = p.record || {};
-  const sols = (p.solutions || []).map(
-    (s) => `<li>
-      <a href="#/bounty/${encodeURIComponent(s.competition.slug)}">${esc(s.competition.title)}</a>
-      <span> — ${esc(s.title || '')}</span>
-      <span class="dim">${s.score ? ` · score ${esc(s.score.display)}` : ''}${s.placement ? ` · place ${s.placement}` : ''}${s.prize_usd ? ` · ${money(s.prize_usd)} won` : ''}</span>
-    </li>`,
-  );
-  return `
-    <p><a href="#/">← All bounties</a></p>
-    <article class="profile">
-      ${img ? `<img class="avatar" crossorigin="anonymous" src="https://make.fun${esc(img)}" alt="Avatar of ${esc(p.handle)}" width="96" height="96">` : ''}
-      <h1>${esc(p.display_name || p.handle)}</h1>
-      <p class="handle">@${esc(p.handle)}</p>
-      ${p.bio ? `<p class="bio">${esc(p.bio)}</p>` : ''}
-      <dl class="facts big">
-        <div><dt>Entered</dt><dd>${rec.competitions_entered ?? 0} competitions</dd></div>
-        <div><dt>Placed</dt><dd>${rec.competitions_placed ?? 0}</dd></div>
-        <div><dt>Won</dt><dd>${rec.competitions_won ?? 0}</dd></div>
-        <div><dt>Prize money</dt><dd>${money(rec.prize_usd ?? 0)}</dd></div>
-        <div><dt>Joined</dt><dd>${date(p.joined_at)}</dd></div>
-      </dl>
-      <h2>Entries (${(p.solutions || []).length})</h2>
-      ${sols.length ? `<ul class="subs">${sols.join('')}</ul>` : '<p>No entries yet.</p>'}
-    </article>`;
-}
-
-/** A plain error page, with a way back. */
-export function errorPage(message) {
-  return `<h1>Something went wrong</h1><p>${esc(message)}</p><p><a href="#/">Back to the board</a></p>`;
+  const avatar = p.avatar?.url ? `https://make.fun${p.avatar.url}` : p.image ? `https://make.fun${p.image}` : '';
+  const record = p.record ?? {};
+  const solutions = p.solutions ?? [];
+  const stat = (value, label) => `<div class="stat"><b>${count(value)}</b><span>${label}</span></div>`;
+  const rows = solutions
+    .map((s) => {
+      const c = s.competition ?? {};
+      const place = s.placement ? `#${count(s.placement)}` : '—';
+      const prize = s.prize_usd ? money(s.prize_usd) : '';
+      return `<tr><td><a href="#/bounty/${encodeURIComponent(c.slug)}">${esc(c.title ?? c.slug ?? '')}</a><br><span class="small muted">${esc(shorten(s.title ?? '', 60))}</span></td><td class="num">${place}</td><td class="num">${prize}</td></tr>`;
+    })
+    .join('');
+  return `<div class="profile-head">
+    ${avatar ? `<img class="avatar-big" crossorigin="anonymous" src="${esc(avatar)}" alt="Avatar of ${esc(p.display_name ?? p.handle)}">` : ''}
+    <div>
+      <h1>${esc(p.display_name ?? p.handle)}</h1>
+      <p class="handle">@${esc(p.handle)}${p.github_login ? ` · GitHub ${esc(p.github_login)}` : ''}</p>
+    </div>
+  </div>
+  ${p.bio ? `<p>${esc(p.bio)}</p>` : ''}
+  <div class="stats" role="list">
+    ${stat(record.competitions_entered, 'Entered')}
+    ${stat(record.competitions_placed, 'Placed')}
+    ${stat(record.competitions_won, 'Won')}
+    ${stat(record.podium_finishes, 'Podiums')}
+    <div class="stat"><b>${money(record.prize_usd ?? 0)}</b><span>Prize money</span></div>
+  </div>
+  <h2>Entries</h2>
+  ${solutions.length ? `<table><caption>${count(solutions.length)} entries</caption><thead><tr><th>Bounty</th><th class="num">Place</th><th class="num">Prize</th></tr></thead><tbody>${rows}</tbody></table>` : '<p class="notice">No entries yet.</p>'}`;
 }
