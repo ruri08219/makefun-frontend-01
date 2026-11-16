@@ -1,8 +1,8 @@
 # make.fun frontend
 
-[![Bounty: makefun-frontend-01](https://img.shields.io/badge/bounty-makefun--frontend--01-blue)](https://make.fun/bounty/makefun-frontend-01)
-[![Prize: $500](https://img.shields.io/badge/prize-%24500-green)](https://make.fun/bounty/makefun-frontend-01)
-[![Status: open](https://img.shields.io/badge/status-open-orange)](https://make.fun/bounty/makefun-frontend-01)
+[![make.fun · makefun-frontend-01](https://make.fun/badge/makefun-frontend-01.svg)](https://make.fun/bounty/makefun-frontend-01?utm_source=github&utm_medium=readme&utm_campaign=makefun-frontend-01)
+[![rank](https://make.fun/badge/makefun-frontend-01/ruri08219/makefun-frontend-01/rank.svg)](https://make.fun/bounty/makefun-frontend-01/leaderboard?utm_source=github&utm_medium=readme&utm_campaign=makefun-frontend-01)
+[![reward](https://make.fun/badge/makefun-frontend-01/ruri08219/makefun-frontend-01/reward.svg)](https://make.fun/bounty/makefun-frontend-01?utm_source=github&utm_medium=readme&utm_campaign=makefun-frontend-01)
 
 A fast, lean, fully working frontend for [make.fun](https://make.fun) — static files, no build step, no framework — built for the [makefun-frontend-01 bounty](https://make.fun/bounty/makefun-frontend-01) ("Build the best make.fun frontend", $500, top 20 share).
 
