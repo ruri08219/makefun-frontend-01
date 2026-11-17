@@ -11,6 +11,7 @@ import {
   cpSync,
   mkdirSync,
   readdirSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -59,6 +60,7 @@ function handIn() {
   const shotNames = checkShots();
   const indexBytes = checkApp();
 
+  rmSync(targetDir, { recursive: true, force: true });
   mkdirSync(targetDir, { recursive: true });
   cpSync(join(repoRoot, 'app'), join(targetDir, 'app'), { recursive: true });
   cpSync(shotsDir, join(targetDir, 'screenshots'), { recursive: true });
