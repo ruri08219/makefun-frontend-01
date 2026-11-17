@@ -3,23 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="A fast, lean frontend for make.fun bounties: live board, bounty pages, leaderboards and profiles on the public API.">
-<title>make.fun bounties</title>
-<link rel="stylesheet" href="style.css">
-<script type="module" src="main.js"></script>
+<meta name="description" content="A lean, fast, read-only client for make.fun bounties: live board, bounty pages, leaderboards and profiles.">
+<title>make.fun, lean — bounties, boards &amp; profiles</title>
+<link rel="stylesheet" href="./look.css">
+<link rel="icon" href="data:,">
 </head>
 <body>
-<a class="skip" href="#view">Skip to content</a>
-<header class="top">
-  <a class="brand" href="#/">make<span>.fun</span> bounties</a>
-  <nav aria-label="Sections">
-    <a href="#/">Board</a>
-    <a href="#/u/ruri08">My profile</a>
-  </nav>
+<a class="jump" href="#stage">Skip to content</a>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#/">make<span class="brand-dot">·</span>fun <em>lean</em></a>
+    <nav class="topnav" aria-label="Sections">
+      <a href="#/">Board</a>
+      <a href="#/bounty/makefun-frontend-01">This bounty</a>
+    </nav>
+    <form class="lookup" id="lookup" action="#/u/" method="get">
+      <label class="visually-hidden" for="lookup-handle">Look up an account</label>
+      <input id="lookup-handle" name="handle" type="search" placeholder="@handle — view profile" autocomplete="off" spellcheck="false">
+      <button type="submit">Profile</button>
+    </form>
+  </div>
 </header>
-<main id="view" tabindex="-1"></main>
-<footer>
-  <p>Unofficial frontend. Live data from make.fun's public API — read-only, no sign-in. <a href="https://make.fun/bounty/makefun-frontend-01">About this entry</a></p>
+<main id="stage" class="wrap stage" tabindex="-1" aria-live="polite">
+  <p class="loading">Loading live bounties from make.fun…</p>
+</main>
+<footer class="wrap foot">
+  <p>Unofficial lean client. Read-only — it only <strong>GET</strong>s make.fun&rsquo;s public API, never signs in or writes.
+  Data: <a href="https://make.fun">make.fun</a> · <a href="https://make.fun/api/openapi.json">public API</a>.
+  Source: <a href="https://github.com/ruri08219/makefun-frontend-01">ruri08219/makefun-frontend-01</a>.</p>
 </footer>
+<script type="module" src="./boot.js"></script>
 </body>
 </html>
